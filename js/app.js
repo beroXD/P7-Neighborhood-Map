@@ -176,13 +176,14 @@ var AppViewModel = function () {
 	self.filter = ko.observable('');
 	self.locationitems = ko.observableArray(locations);
 	self.search = ko.computed(function () {
-		self.locationitems().forEach(function (list) {
-			if (list.marker) {
-				list.marker.setVisible(true);
-			}
-		});
-
 		if (!self.filter().toLowerCase()) {
+			// loop through list and make markers appear when search box is cleared.
+			self.locationitems().forEach(function (list) {
+				if (list.marker) {
+					list.marker.setVisible(true);
+				}
+			});
+
 			return self.locationitems();
 		} else {
 			// `ko.utils.arrayFilter` return true only when the item’s name starts with the value of the filter observable.

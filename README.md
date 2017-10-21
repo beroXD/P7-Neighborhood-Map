@@ -8,6 +8,9 @@ The goal of this project is:
 - Learn to use `APIs`.
 - The final result is a map of popular places around Dubai, they are marked and when the markers are clicked, a wikipedia link and street view will be displayed.
 
+![screenshot](https://github.com/beroXD/P7-Neighborhood-Map/blob/master/screencapture.png)
+
+
 ## Getting started
 
 - Download the repository.

@@ -213,7 +213,6 @@ var AppViewModel = function () {
 	for (var i = 0; i < locations.length; i++) {
 		var title = locations[i].title;
 		var position = locations[i].location;
-		wikipedia(locations[i]);
 		var marker = new google.maps.Marker({
 			position: position,
 			map: map,
@@ -225,78 +224,94 @@ var AppViewModel = function () {
 		markers.push(marker);
 		locations[i].marker = marker;
 		marker.addListener('click', toggleBounce);
-
-		// change icon color when hover.
-		marker.addListener('mouseover', function () {
-			this.setIcon(highlightedIcon);
-		});
-		marker.addListener('mouseout', function () {
-			this.setIcon(defaultIcon);
-		});
+		marker.addListener('mouseover', highlightedMarker);
+		marker.addListener('mouseout', defaultMarker);
 
 		// load infowindow and content.
 		var infowindow = new google.maps.InfoWindow({
 			content: title,
 			position: position
 		});
+		marker.addListener('click', openInfowindow);
+	}
 
+	// `populateInfowindow(this, infowindow)` function not allowed insode loop.
+	function openInfowindow() {
+		populateInfowindow(this, infowindow);
+	}
+
+	// Infowindow Content (title, wiki API, Street view).
+	function populateInfowindow(marker, infowindow) {
 		// Street View API.
 		var streetViewService = new google.maps.StreetViewService();
 		var radius = 50;
 
-		function getStreetView(data, status) {
-
-			if (status == google.maps.StreetViewStatus.OK) {
-				var nearStreet = data.location.latLng;
-				var heading = google.maps.geometry.spherical.computeHeading(nearStreet, marker.position);
-				var panoramaOptions = {
-					position: nearStreet,
-					pov: {
-						heading: heading,
-						pitch: 30
-					}
-				};
-				var panorama = new google.maps.StreetViewPanorama(
-					document.getElementById('pano'), panoramaOptions);
-			} else {
-				infowindow.setContent('<div>No Street View Found</div>');
-			}
-		}
-
 		// wikipedia API
-		function wikipedia(window) {
-			var wikiUrl = 'https://en.wikipedia.org/w/api.php?' +
-				'action=opensearch&search=' + title +
-				'&format=json&callback=wikiCallback';
+		var wikilink;
+		var wikiUrl = 'https://en.wikipedia.org/w/api.php?' +
+			'action=opensearch&search=' + marker.title +
+			'&format=json&callback=wikiCallback';
 
-			$.ajax({
-				url: wikiUrl,
-				dataType: "jsonp"
-			}).done(function (response) {
-				var url = response[3][0];
-				window.url = url;
-			}).fail(function () {
-				// error handling is not build in jsonp
-				var wikiFail = setTimeout(function () {
-					alert("Failed to load wikipedia link");
-				}, 8000);
-			});
-		}
+		$.ajax({
+			url: wikiUrl,
+			dataType: "jsonp"
+		}).done(function (response) {
+			wikilink = response[3][0];
+			streetViewService.getPanoramaByLocation(marker.position, radius, getStreetView);
+		}).fail(function () {
+			var wikiFail = setTimeout(function () {
+				alert("Failed to load wikipedia link");
+			}, 8000);
+		});
 
 		// Infowindow Content.
-		marker.addListener('click', (function (marker, window) {
-			return function () {
-				streetViewService.getPanoramaByLocation(marker.position, radius, getStreetView);
+		if (infowindow.marker != marker) {
+			infowindow.marker = marker;
+			infowindow.setContent('');
+			infowindow.open(map, marker);
+			// Make sure the marker property is cleared if the infowindow is closed.
+			infowindow.addListener('closeclick', function () {
+				infowindow.marker = null;
+			});
 
-				if (infowindow.marker) {
-					infowindow.marker.setIcon(defaultIcon);
+			var getStreetView = function (data, status) {
+				if (status == google.maps.StreetViewStatus.OK) {
+					var nearStreet = data.location.latLng;
+					var heading = google.maps.geometry.spherical.computeHeading(nearStreet, marker.position);
+					if (infowindow.marker) {
+						infowindow.marker.setIcon(defaultIcon);
+					}
+					infowindow.marker = marker;
+					infowindow.open(map, marker);
+					infowindow.setContent("<div class='title'>" + marker.title + "</div><div><a href=" + wikilink + ">" + wikilink + "</a></div><hr><div id='pano'></div>");
+
+					// THIS IS NOT WORKING!!??
+					// if infowindow is open the marked is supposed to change to yellow.
+					//	infowindow.marker.setIcon(highlightedIcon);
+
+					var panoramaOptions = {
+						position: nearStreet,
+						pov: {
+							heading: heading,
+							pitch: 30
+						}
+					};
+					var panorama = new google.maps.StreetViewPanorama(
+						document.getElementById('pano'), panoramaOptions);
+				} else {
+					infowindow.setContent('<div>No Street View Found</div>');
 				}
-				infowindow.marker = marker;
 				infowindow.open(map, marker);
-				infowindow.setContent("<div class='title'>" + marker.title + "</div><div><a href=" + window.url + ">" + window.url + "</a></div><hr><div id='pano'></div>");
-				this.setIcon(highlightedIcon);
 			};
-		})(marker, locations[i]));
+		}
+	}
+
+	function highlightedMarker() {
+		this.setIcon(highlightedIcon);
+	}
+
+	function defaultMarker() {
+		this.setIcon(defaultIcon);
 	}
 };
 
